@@ -177,7 +177,7 @@
             // pictureBox1
             // 
             this.pictureBox1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.pictureBox1.Image = global::SimpleNetworkCommunication.Properties.Resources.loading_gif;
+            this.pictureBox1.Image = global::SimpleNetworkCommunicationLB.Properties.Resources.loading_gif;
             this.pictureBox1.Location = new System.Drawing.Point(16, 317);
             this.pictureBox1.Name = "pictureBox1";
             this.pictureBox1.Size = new System.Drawing.Size(20, 20);

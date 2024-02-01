@@ -97,13 +97,19 @@ namespace SimpleNetworkCommunication
         public delegate void MessageReceived(string message);
 
         /// <summary>
-        /// Событие возникающее когда к серверу подключается клиент
+        /// Тоже самое событие что и ScReceivedMessage, но возвращает необработанный массив байтов
+        /// </summary>
+        public event RawDataReceived ScReceivedRawMessage;
+        public delegate void RawDataReceived(byte[] bytes);
+
+        /// <summary>
+        /// Событие, возникающее когда к серверу подключается клиент
         /// </summary>
         public event ClientConnected Connected;
         public delegate void ClientConnected(TcpClient client);
 
         /// <summary>
-        /// Событие возникающее когда от сервера отключается клиент
+        /// Событие, возникающее когда от сервера отключается клиент
         /// </summary>
         public event ClientDisconnected Disconnected;
         public delegate void ClientDisconnected(TcpClient client);
@@ -122,13 +128,16 @@ namespace SimpleNetworkCommunication
         {
             if (isAnswer)
             {
+                // Отправка сообщения в ответ на ранее полученное
                 lastMessage?.ReplyLine($"<{Key}>{message}</{Key}>");
                 return;
             }
 
+            // Трансляция сообщения с клиента на сервер
             if (Role == NetRole.Client)
                 TcpClient?.WriteLine($"<{Key}>{message}</{Key}>");
 
+            // Трансляция сообщения с сервера на клиент
             if (Role == NetRole.Server)
                 TcpServer?.BroadcastLine($"<{Key}>{message}</{Key}>");
         }
@@ -142,13 +151,16 @@ namespace SimpleNetworkCommunication
         {
             if (isAnswer)
             {
+                // Отправка сообщения в ответ на ранее полученное
                 lastMessage?.Reply(data);
                 return;
             }
 
+            // Трансляция сообщения с клиента на сервер
             if (Role == NetRole.Client)
                 TcpClient?.Write(data);
 
+            // Трансляция сообщения с сервера на клиент
             if (Role == NetRole.Server)
                 TcpServer?.Broadcast(data);
         }
@@ -185,6 +197,7 @@ namespace SimpleNetworkCommunication
                         ClientInfoServer = new SimpleTCP.SimpleTcpServer();
                         ClientInfoServer.ClientConnected += (_s, _e) =>
                         {
+                            // Информационный сервер сообщает информацию о клиенте всем, кто к нему подключится
                             ClientInfoServer.BroadcastLine($"<com>{NetworkAddress.Port}\\{Role}</com>");
                         };
                         ClientInfoServer.Start(ClientInfoPort - i);
@@ -208,12 +221,18 @@ namespace SimpleNetworkCommunication
                         SimpleTcpClient simpleTcpClient = new SimpleTcpClient();
                         simpleTcpClient.DataReceived += (_s, _e) =>
                         {
+                            // Расшифровка данных с информационного сервера
                             string resstr = Regex.Match(_e.MessageString, @"(?<=<com>)(.*)(?=</com>)").ToString();
+
+                            // Порт
                             string por = resstr.Split('\\')[0];
+
+                            // Роль
                             string rol = resstr.Split('\\')[1];
 
                             Log($"Получены данные: {resstr}");
 
+                            // Роль текущего клиента - противоположность роли полученной с информационного сервера
                             Role = NetRole.Client.ToString().Contains(rol) ? NetRole.Server : NetRole.Client;
 
                             Log($"Получение роли подключаемой машины: Успешно, попытка {i}");
@@ -248,6 +267,7 @@ namespace SimpleNetworkCommunication
                 TcpClient.Connect(NetworkAddress.IP.ToString(), NetworkAddress.Port - 1);
                 TcpClient.DataReceived += (_s, _e) =>
                 {
+                    ScReceivedRawMessage(_e.Data);
                     foreach (string str in DecrypteString(_e.MessageString))
                     {
                         ScReceivedMessage(str);
@@ -265,12 +285,13 @@ namespace SimpleNetworkCommunication
                 TcpServer.DataReceived += (_s, _e) =>
                 {
                     lastMessage = _e;
+                    ScReceivedRawMessage(_e.Data);
                     foreach (string str in DecrypteString(_e.MessageString))
                     {
                         ScReceivedMessage(str);
                     }
                 };
-                TcpServer.ClientConnected += (_s, _e) => 
+                TcpServer.ClientConnected += (_s, _e) =>
                 {
                     Connected(_e);
                 };
@@ -283,7 +304,7 @@ namespace SimpleNetworkCommunication
             }
         }
 
-        public void Log(string msg)
+        private void Log(string msg)
         {
             try
             {
@@ -291,7 +312,7 @@ namespace SimpleNetworkCommunication
             }
             catch 
             {
-                throw new Exception("Ошибка вызова делегата ProgrammedStatusChanged. Получение данных о статусе сервера невозможно если запуск сервера происходит до создания события. Для предотвращения непредвиденного исключения попробуйте отключить QuickStart и запускать сервер вручную.");
+                throw new Exception("Ошибка вызова делегата ProgrammedStatusChanged. Получение данных о статусе сервера невозможно, если запуск сервера происходит до создания события. Для предотвращения непредвиденного исключения попробуйте отключить QuickStart и запустить сервер вручную.");
             }
         }
 
